@@ -22,7 +22,7 @@ jobs:
         id: set-matrix
         run: echo "matrix=[${{ env.VERSIONS_LIST }}]" >> $GITHUB_OUTPUT
 
-      - name: Dete stamp
+      - name: Date stamp
         id: date-stamp
         run: |
           # date stamp
@@ -102,7 +102,7 @@ jobs:
       DATE_STAMP: ${{ needs.set-versions-matrix.outputs.date_stamp }}
 
     steps:
-    - name: Set envirounment
+    - name: Set environment
       run: |
         # Redefine VERSION_MAJOR
         release=$(rpm -q --qf="%{VERSION}\n" almalinux-release 2>/dev/null)
@@ -140,14 +140,15 @@ jobs:
       DATE_STAMP: ${{ needs.set-versions-matrix.outputs.date_stamp }}
 
     steps:
-      - name: Set envirounment
+      - name: Set environment
         run: |
           # Minor version for both amd64 and arm64
           for MACHINE in x86_64 aarch64; do
             release=$(rpm -q --qf="%{VERSION}\n" https://repo.almalinux.org/almalinux/almalinux-release-latest-${{ matrix.VERSION_MAJOR }}.${MACHINE}.rpm 2>/dev/null)
             VERSION_MINOR=$(cut -d '.' -f 2 <<< "$release")
             [ "x${VERSION_MINOR}" != "x" ] && echo "VERSION_MINOR_${MACHINE}=${VERSION_MINOR}" >> "$GITHUB_ENV"
-             unset VERSION_MINOR
+            echo "[Debug] MACHINE=${MACHINE} release=$release VERSION_MINOR=${VERSION_MINOR}"
+            unset VERSION_MINOR release
           done
 
       - name: Login to registry (docker)
