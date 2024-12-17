@@ -8,7 +8,7 @@ on:
 env:
   LATEST_MAJOR: 9
   IMAGE_NAME: almalinux-bootc
-  VERSIONS_LIST: '"9", "10-kitten"'
+  VERSIONS_LIST: '"9", "10-kitten", "10-kitten-x86_64_v2"'
 
 jobs:
   set-versions-matrix:
@@ -42,13 +42,18 @@ jobs:
         VERSION_MAJOR: ${{ fromJSON(needs.set-versions-matrix.outputs.matrix) }}
 
     env:
-      PLATFORM: linux/amd64
       DATE_STAMP: ${{ needs.set-versions-matrix.outputs.date_stamp }}
 
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: true
+
+    - name: Set environment
+      run: |
+        PLATFORM=linux/amd64
+        [[ ${{ matrix.VERSION_MAJOR }} = *'v2'* ]] && PLATFORM=linux/amd64/v2
+        echo "PLATFORM=${PLATFORM}" >> "$GITHUB_ENV"
 
     - uses: ./.github/actions/shared-steps
       name: Build and Push
@@ -68,6 +73,8 @@ jobs:
       fail-fast: false
       matrix:
         VERSION_MAJOR: ${{ fromJSON(needs.set-versions-matrix.outputs.matrix) }}
+        exclude:
+          - VERSION_MAJOR: 10-kitten-x86_64_v2
 
     steps:
     - name: Setup and start the runner
@@ -101,6 +108,8 @@ jobs:
       fail-fast: false
       matrix:
         VERSION_MAJOR: ${{ fromJSON(needs.set-versions-matrix.outputs.matrix) }}
+        exclude:
+          - VERSION_MAJOR: 10-kitten-x86_64_v2
     env:
       PLATFORM: linux/arm64
       DATE_STAMP: ${{ needs.set-versions-matrix.outputs.date_stamp }}
@@ -145,6 +154,8 @@ jobs:
       fail-fast: false
       matrix:
         VERSION_MAJOR: ${{ fromJSON(needs.set-versions-matrix.outputs.matrix) }}
+        exclude:
+          - VERSION_MAJOR: 10-kitten-x86_64_v2
     env:
       DATE_STAMP: ${{ needs.set-versions-matrix.outputs.date_stamp }}
 
@@ -173,16 +184,20 @@ jobs:
 
       - name: Create and push manifest (docker)
         run:  |
-          # Manifest for both amd64 and arm64
+          # Manifest for amd64, amd64_v2 and arm64
           IMAGE_DEST=${{ secrets.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}
 
           amd64_exists=0
+          amd64_v2_exists=0
           arm64_exists=0
           docker manifest inspect ${IMAGE_DEST}:${{ matrix.VERSION_MAJOR }}${{ env.VERSION_MINOR_x86_64 }}-${{ env.DATE_STAMP }}-amd64 >/dev/null 2>&1 \
             || amd64_exists=$?
+          docker manifest inspect ${IMAGE_DEST}:${{ matrix.VERSION_MAJOR }}${{ env.VERSION_MINOR_x86_64 }}-${{ env.DATE_STAMP }}-amd64_v2 >/dev/null 2>&1 \
+            || amd64_v2_exists=$?
           docker manifest inspect ${IMAGE_DEST}:${{ matrix.VERSION_MAJOR }}${{ env.VERSION_MINOR_aarch64 }}-${{ env.DATE_STAMP }}-arm64 >/dev/null 2>&1 \
             || arm64_exists=$?
-          [ $amd64_exists -ne 0 -o $arm64_exists -ne 0 ] && exit 0
+          # Do nothing if one of the manifests (images) do not exist
+          [ $amd64_exists -ne 0 -o $amd64_v2_exists -ne 0 -o $arm64_exists -ne 0 ] && exit 0
 
           # Don't push manifest if amd64 and arm64 minor versions differ
           VERSION_MINOR=${{ env.VERSION_MINOR_x86_64 }}
@@ -195,6 +210,7 @@ jobs:
               [ ${{ matrix.VERSION_MAJOR }} != ${{ env.LATEST_MAJOR }} -a "${tag}" = "latest" ] && continue
               docker manifest create ${IMAGE_DEST}:${tag} \
                   ${IMAGE_DEST}:${{ matrix.VERSION_MAJOR }}${VERSION_MINOR}-${{ env.DATE_STAMP }}-amd64 \
+                  ${IMAGE_DEST}:${{ matrix.VERSION_MAJOR }}${VERSION_MINOR}-${{ env.DATE_STAMP }}-amd64_v2 \
                   ${IMAGE_DEST}:${{ matrix.VERSION_MAJOR }}${VERSION_MINOR}-${{ env.DATE_STAMP }}-arm64
 
               docker manifest inspect ${IMAGE_DEST}:${tag}

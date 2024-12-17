@@ -17,15 +17,21 @@ runs:
     - name: Prepare environment
       shell: bash
       run: |
-        # Platform / arch
+        # Platform / arch, like: amd64, arm64, amd64_v2
         platform="${{ env.PLATFORM }}"
-        ARCH=${platform#linux/}
+        ARCH=${platform#linux/}; ARCH="${ARCH/\//_}"
         [ "x${ARCH}" != "x" ] && echo "ARCH=${ARCH}" >> "$GITHUB_ENV"
 
-        # Platform / machine
+        # Platform / machine, like: x86_64, aarch64
         MACHINE=x86_64
         [ "$ARCH" = "arm64" ] && MACHINE=aarch64
+        [[ ${{ env.PLATFORM }} = *'v2'* ]] && MACHINE=x86_64_v2
         echo "MACHINE=${MACHINE}" >> "$GITHUB_ENV"
+
+        # Pull tag and directory with Containerfile, like: 9, 10-kitten
+        PULL_TAG=${{ inputs.VERSION_MAJOR }}
+        [[ ${{ env.PLATFORM }} = *'v2'* ]] && PULL_TAG="${PULL_TAG/-x86_64_v2/}"
+        echo "PULL_TAG=${PULL_TAG}" >> "$GITHUB_ENV"
 
         # Minor version
         VERSION_MINOR=
@@ -49,7 +55,7 @@ runs:
         #   125 - tag/platform not found
         #   127 - command not found
         res=0
-        podman run --quiet --rm ${{ inputs.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ inputs.VERSION_MAJOR }} dnf check-update || res=$?
+        podman run --quiet --rm --platform=${{ env.PLATFORM }} ${{ inputs.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.PULL_TAG }} dnf check-update || res=$?
         echo "res=${res}" >> "$GITHUB_ENV"
         echo "Exit code: '$res'"
 
@@ -63,13 +69,13 @@ runs:
           --cap-add=all \
           --device /dev/fuse \
           -t ${{ env.IMAGE_NAME }} \
-          -f ${{ inputs.VERSION_MAJOR }}/Containerfile \
+          -f ${{ env.PULL_TAG }}/Containerfile \
         .
 
     - name: Run Image
       if: ${{ env.res != 0 }}
       shell: bash
-      run: podman run --rm -ti ${{ env.IMAGE_NAME }} bootc --version
+      run: podman run --platform=${{ env.PLATFORM }} --rm -ti ${{ env.IMAGE_NAME }} bootc --version
 
     - name: Log in to registry
       if: ${{ env.res != 0 }}

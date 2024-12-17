@@ -1,4 +1,4 @@
-FROM docker.io/library/almalinux:10-kitten as repos
+FROM quay.io/almalinuxorg/almalinux:10-kitten as repos
 FROM quay.io/centos-bootc/bootc-image-builder:latest as builder
 
 
