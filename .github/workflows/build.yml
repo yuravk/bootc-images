@@ -68,7 +68,7 @@ jobs:
         submodules: true
 
     - uses: ./.github/actions/shared-steps
-      name: Build and Push
+      name: Build and Push (${{ matrix.VERSION_MAJOR }})
       with:
         VERSION_MAJOR: ${{ matrix.VERSION_MAJOR }}
         DATE_STAMP: ${{ env.DATE_STAMP }}
@@ -94,7 +94,7 @@ jobs:
         submodules: true
 
     - uses: ./.github/actions/shared-steps
-      name: Build and Push (${{ env.VERSION_MAJOR }})
+      name: Build and Push (${{ matrix.VERSION_MAJOR }})
       with:
         VERSION_MAJOR: ${{ matrix.VERSION_MAJOR }}
         DATE_STAMP: ${{ env.DATE_STAMP }}
